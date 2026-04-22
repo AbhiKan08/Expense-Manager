@@ -3,7 +3,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import {
-  getAllTransactions, createTransaction, updateTransaction,
+  init, getAllTransactions, createTransaction, updateTransaction,
   deleteTransaction, getSetting, setSetting,
 } from './db.js';
 import { DEFAULT_CATEGORIES, DEFAULT_SUBCATEGORIES } from '../src/data/defaults.js';
@@ -15,49 +15,48 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Serve built frontend in production
 const distPath = join(__dirname, '..', 'dist');
 app.use(express.static(distPath));
 
 // --- Transactions ---
-app.get('/api/transactions', (req, res) => {
-  res.json(getAllTransactions());
+app.get('/api/transactions', async (req, res) => {
+  res.json(await getAllTransactions());
 });
 
-app.post('/api/transactions', (req, res) => {
-  const tx = req.body;
-  createTransaction(tx);
+app.post('/api/transactions', async (req, res) => {
+  const tx = await createTransaction(req.body);
   res.status(201).json(tx);
 });
 
-app.put('/api/transactions/:id', (req, res) => {
-  updateTransaction(req.params.id, req.body);
+app.put('/api/transactions/:id', async (req, res) => {
+  await updateTransaction(req.params.id, req.body);
   res.json({ ok: true });
 });
 
-app.delete('/api/transactions/:id', (req, res) => {
-  deleteTransaction(req.params.id);
+app.delete('/api/transactions/:id', async (req, res) => {
+  await deleteTransaction(req.params.id);
   res.json({ ok: true });
 });
 
 // --- Settings ---
-app.get('/api/settings', (req, res) => {
+app.get('/api/settings', async (req, res) => {
   res.json({
-    categories:    getSetting('categories',    DEFAULT_CATEGORIES),
-    subcategories: getSetting('subcategories', DEFAULT_SUBCATEGORIES),
+    categories:    await getSetting('categories',    DEFAULT_CATEGORIES),
+    subcategories: await getSetting('subcategories', DEFAULT_SUBCATEGORIES),
   });
 });
 
-app.put('/api/settings', (req, res) => {
+app.put('/api/settings', async (req, res) => {
   const { categories, subcategories } = req.body;
-  if (categories)    setSetting('categories',    categories);
-  if (subcategories) setSetting('subcategories', subcategories);
+  if (categories)    await setSetting('categories',    categories);
+  if (subcategories) await setSetting('subcategories', subcategories);
   res.json({ ok: true });
 });
 
-// SPA fallback (production)
 app.get('*', (req, res) => {
   res.sendFile(join(distPath, 'index.html'));
 });
 
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+init().then(() => {
+  app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+});
