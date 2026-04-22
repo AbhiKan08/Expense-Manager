@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(ipconfig getifaddr *)",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(python3 -m uvicorn main:app --host 0.0.0.0 --port 8000)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(node -e \"const {DatabaseSync} = require\\('node:sqlite'\\); console.log\\('ok'\\)\")",
+      "Bash(npm uninstall *)",
+      "Bash(node server/index.js)",
+      "Bash(curl -s http://localhost:3001/api/settings)",
+      "Bash(PORT=3002 node server/index.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3002/)",
+      "Bash(curl -s http://localhost:3002/api/transactions)"
+    ]
+  }
+}
