@@ -1,5 +1,21 @@
 import { useState, useRef, useCallback } from 'react';
 import { formatCurrency } from '../utils/dateHelpers';
+import { api } from '../api';
+
+const SOURCE_TYPES = [
+  {
+    key: 'bank',
+    label: 'Bank / Credit Card Statement',
+    desc: 'PDF or CSV downloaded directly from your bank or card app',
+    icon: '🏦',
+  },
+  {
+    key: 'expense_manager',
+    label: 'Expense Manager Export',
+    desc: 'CSV export from Walnut, Money Manager, Spendee, or any other app',
+    icon: '📱',
+  },
+];
 
 const TYPE_OPTIONS   = ['debit', 'credit', 'investment', 'selfTransfer'];
 const TYPE_LABELS    = { debit: 'Debit', credit: 'Credit', investment: 'Investment', selfTransfer: 'Transfer' };
@@ -28,12 +44,13 @@ function StepBadge({ n, label, active, done }) {
 }
 
 export default function ImportStatement({ categories, subCategories, onAddTransaction }) {
-  const [step, setStep]           = useState('upload');   // upload | processing | review | done
+  const [step, setStep]           = useState('source');   // source | upload | processing | review | done
+  const [sourceType, setSourceType] = useState('bank');
   const [dragOver, setDragOver]   = useState(false);
   const [fileName, setFileName]   = useState('');
   const [error, setError]         = useState('');
-  const [rows, setRows]           = useState([]);          // parsed transactions
-  const [selected, setSelected]   = useState(new Set());  // ids selected for import
+  const [rows, setRows]           = useState([]);
+  const [selected, setSelected]   = useState(new Set());
   const [importing, setImporting] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
   const [editingId, setEditingId] = useState(null);
@@ -47,10 +64,8 @@ export default function ImportStatement({ categories, subCategories, onAddTransa
   // ── upload ────────────────────────────────────────────────────────────────
   async function processFile(file) {
     if (!file) return;
-    const allowed = ['application/pdf', 'text/csv', 'text/plain', 'application/vnd.ms-excel',
-                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
     const ext = file.name.split('.').pop().toLowerCase();
-    if (!allowed.includes(file.type) && !['pdf','csv','txt','xls','xlsx'].includes(ext)) {
+    if (!['pdf','csv','txt','xls','xlsx'].includes(ext)) {
       setError('Please upload a PDF or CSV file.');
       return;
     }
@@ -58,13 +73,8 @@ export default function ImportStatement({ categories, subCategories, onAddTransa
     setError('');
     setStep('processing');
 
-    const form = new FormData();
-    form.append('statement', file);
-
     try {
-      const res  = await fetch('/api/import', { method: 'POST', body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Import failed');
+      const data = await api.importStatement(file, sourceType);
 
       const txs = data.transactions.map(t => ({ ...t, _editing: false }));
       setRows(txs);
@@ -124,7 +134,7 @@ export default function ImportStatement({ categories, subCategories, onAddTransa
   }
 
   function reset() {
-    setStep('upload'); setRows([]); setSelected(new Set());
+    setStep('source'); setRows([]); setSelected(new Set());
     setFileName(''); setError(''); setImportedCount(0); setEditingId(null);
   }
 
@@ -135,15 +145,40 @@ export default function ImportStatement({ categories, subCategories, onAddTransa
       <p className="text-sm text-gray-500 mb-5">Upload a bank or credit card statement — Claude will read and categorise every transaction automatically.</p>
 
       {/* Steps */}
-      <div className="flex items-center gap-4 mb-6">
-        <StepBadge n="1" label="Upload"     active={step==='upload'}     done={step!=='upload'} />
-        <div className="flex-1 h-px bg-gray-200" />
-        <StepBadge n="2" label="Processing" active={step==='processing'} done={step==='review'||step==='done'} />
-        <div className="flex-1 h-px bg-gray-200" />
-        <StepBadge n="3" label="Review"     active={step==='review'}     done={step==='done'} />
-        <div className="flex-1 h-px bg-gray-200" />
-        <StepBadge n="4" label="Done"       active={step==='done'}       done={false} />
+      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+        <StepBadge n="1" label="Source"     active={step==='source'}     done={step!=='source'} />
+        <div className="flex-1 h-px bg-gray-200 min-w-[16px]" />
+        <StepBadge n="2" label="Upload"     active={step==='upload'}     done={!['source','upload'].includes(step)} />
+        <div className="flex-1 h-px bg-gray-200 min-w-[16px]" />
+        <StepBadge n="3" label="Processing" active={step==='processing'} done={step==='review'||step==='done'} />
+        <div className="flex-1 h-px bg-gray-200 min-w-[16px]" />
+        <StepBadge n="4" label="Review"     active={step==='review'}     done={step==='done'} />
+        <div className="flex-1 h-px bg-gray-200 min-w-[16px]" />
+        <StepBadge n="5" label="Done"       active={step==='done'}       done={false} />
       </div>
+
+      {/* ── STEP 0: Source type ── */}
+      {step === 'source' && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <p className="text-sm font-medium text-gray-700 mb-4">What are you importing?</p>
+          <div className="grid sm:grid-cols-2 gap-3 mb-6">
+            {SOURCE_TYPES.map((s) => (
+              <button key={s.key} onClick={() => setSourceType(s.key)}
+                className={`text-left p-4 rounded-xl border-2 transition-all ${
+                  sourceType === s.key ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                <div className="text-2xl mb-2">{s.icon}</div>
+                <p className={`font-semibold text-sm mb-1 ${sourceType === s.key ? 'text-indigo-700' : 'text-gray-800'}`}>{s.label}</p>
+                <p className="text-xs text-gray-500">{s.desc}</p>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setStep('upload')}
+            className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+            Continue →
+          </button>
+        </div>
+      )}
 
       {/* ── STEP 1: Upload ── */}
       {step === 'upload' && (

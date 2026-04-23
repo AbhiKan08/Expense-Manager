@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import TransactionList from './components/TransactionList';
 import ManageCategories from './components/ManageCategories';
 import ImportStatement from './components/ImportStatement';
+import Login from './components/Login';
 
 const NAV = [
   { id: 'add', label: 'Add', icon: (
@@ -36,14 +37,32 @@ const NAV = [
 ];
 
 export default function App() {
-  const [view, setView] = useState('add');
+  const [user, setUser]               = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [view, setView]               = useState('add');
   const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [categories, setCategories]     = useState(DEFAULT_CATEGORIES);
   const [subCategories, setSubCategories] = useState(DEFAULT_SUBCATEGORIES);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading]           = useState(true);
 
+  // ── Check stored token on mount ───────────────────────────────────────────
   useEffect(() => {
+    const token = localStorage.getItem('em_token');
+    if (!token) { setAuthChecked(true); setLoading(false); return; }
+
+    api.getMe()
+      .then((u) => { setUser(u); setAuthChecked(true); })
+      .catch(() => {
+        localStorage.removeItem('em_token');
+        setAuthChecked(true);
+        setLoading(false);
+      });
+  }, []);
+
+  // ── Load data once authenticated ──────────────────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
     Promise.all([api.getSettings(), api.getTransactions()])
       .then(([settings, txs]) => {
         setCategories(settings.categories);
@@ -51,12 +70,24 @@ export default function App() {
         setTransactions(txs);
         setLoading(false);
       })
-      .catch(() => {
-        setError('Cannot reach the server. Make sure the backend is running.');
-        setLoading(false);
-      });
+      .catch(() => setLoading(false));
+  }, [user]);
+
+  // ── Auth handlers ─────────────────────────────────────────────────────────
+  const handleLogin = useCallback((token, userData) => {
+    localStorage.setItem('em_token', token);
+    setUser(userData);
   }, []);
 
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('em_token');
+    setUser(null);
+    setTransactions([]);
+    setCategories(DEFAULT_CATEGORIES);
+    setSubCategories(DEFAULT_SUBCATEGORIES);
+  }, []);
+
+  // ── Transaction handlers ──────────────────────────────────────────────────
   const addTransaction = useCallback(async (tx) => {
     const saved = await api.createTransaction(tx);
     setTransactions((prev) => [saved, ...prev]);
@@ -72,6 +103,7 @@ export default function App() {
     setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
   }, []);
 
+  // ── Category handlers ─────────────────────────────────────────────────────
   const addCategory = useCallback(async (type, name) => {
     const updated = { ...categories, [type]: [...(categories[type] || []), name] };
     setCategories(updated);
@@ -96,35 +128,33 @@ export default function App() {
     await api.updateSettings({ subcategories: updated });
   }, [subCategories]);
 
+  // ── Render states ─────────────────────────────────────────────────────────
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return <Login onLogin={handleLogin} />;
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Loading...</p>
+          <p className="text-gray-500 text-sm">Loading your data…</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white rounded-xl border border-red-200 p-6 max-w-sm text-center">
-          <p className="text-rose-600 font-semibold mb-2">Connection Error</p>
-          <p className="text-gray-500 text-sm mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const sharedCategoryProps = { categories, subCategories, onAddCategory: addCategory, onAddSubCategory: addSubCategory };
+  const sharedCategoryProps = {
+    categories, subCategories,
+    onAddCategory: addCategory,
+    onAddSubCategory: addSubCategory,
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -135,26 +165,49 @@ export default function App() {
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {NAV.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setView(item.id)}
+            <button key={item.id} onClick={() => setView(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                view === item.id
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                view === item.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
-              {item.icon}
-              {item.label}
+              {item.icon}{item.label}
             </button>
           ))}
         </nav>
+        {/* User info + logout */}
+        <div className="p-4 border-t border-gray-100">
+          <div className="flex items-center gap-3 mb-3">
+            {user.picture
+              ? <img src={user.picture} alt="" className="w-8 h-8 rounded-full" />
+              : <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">
+                  {(user.name || user.email || 'U')[0].toUpperCase()}
+                </div>
+            }
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-800 truncate">{user.name}</p>
+              <p className="text-xs text-gray-400 truncate">{user.email}</p>
+            </div>
+          </div>
+          <button onClick={handleLogout}
+            className="w-full text-xs text-gray-500 hover:text-rose-600 py-1.5 hover:bg-rose-50 rounded-lg transition-colors">
+            Sign out
+          </button>
+        </div>
       </aside>
 
-      {/* Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3">
+        {/* Mobile header */}
+        <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <h1 className="text-base font-bold text-indigo-600">Expense Manager</h1>
+          <div className="flex items-center gap-2">
+            {user.picture
+              ? <img src={user.picture} alt="" className="w-7 h-7 rounded-full" />
+              : <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-xs">
+                  {(user.name || 'U')[0].toUpperCase()}
+                </div>
+            }
+            <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-rose-600">Sign out</button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-6 pb-24 md:pb-6">
@@ -168,15 +221,12 @@ export default function App() {
         {/* Mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex z-10">
           {NAV.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setView(item.id)}
+            <button key={item.id} onClick={() => setView(item.id)}
               className={`flex-1 flex flex-col items-center gap-1 py-2 text-xs font-medium transition-colors ${
                 view === item.id ? 'text-indigo-600' : 'text-gray-500'
               }`}
             >
-              {item.icon}
-              {item.label}
+              {item.icon}{item.label}
             </button>
           ))}
         </nav>
