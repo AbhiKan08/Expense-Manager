@@ -7,6 +7,7 @@ import {
   deleteTransaction, getSetting, setSetting,
 } from './db.js';
 import { DEFAULT_CATEGORIES, DEFAULT_SUBCATEGORIES } from '../src/data/defaults.js';
+import { setupImportRoute } from './import.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -52,6 +53,8 @@ app.put('/api/settings', async (req, res) => {
   if (subcategories) await setSetting('subcategories', subcategories);
   res.json({ ok: true });
 });
+
+setupImportRoute(app);
 
 app.get('*', (req, res) => {
   res.sendFile(join(distPath, 'index.html'));
