@@ -5,6 +5,6 @@
   },
   "deploy": {
     "startCommand": "node server/index.js",
-    "healthcheckPath": "/api/settings"
+    "healthcheckPath": "/api/config"
   }
 }
