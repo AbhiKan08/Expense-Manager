@@ -41,6 +41,11 @@ export const api = {
   updateTransaction: (id, patch)  => req(`/api/transactions/${id}`, { method: 'PUT',    body: JSON.stringify(patch) }),
   deleteTransaction: (id)         => req(`/api/transactions/${id}`, { method: 'DELETE' }),
 
+  // Gmail
+  gmailStatus:     ()    => req('/api/gmail/status'),
+  gmailSync:       ()    => req('/api/gmail/sync', { method: 'POST' }),
+  gmailDisconnect: ()    => req('/api/gmail/disconnect', { method: 'DELETE' }),
+
   // Import
   importStatement: (file, sourceType) => {
     const form = new FormData();

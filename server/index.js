@@ -9,6 +9,7 @@ import {
 import { DEFAULT_CATEGORIES, DEFAULT_SUBCATEGORIES } from '../src/data/defaults.js';
 import { setupAuthRoutes, requireAuth } from './auth.js';
 import { setupImportRoute } from './import.js';
+import { setupGmailRoutes } from './gmail.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app  = express();
@@ -59,8 +60,9 @@ app.put('/api/settings', async (req, res) => {
   res.json({ ok: true });
 });
 
-// Import (Claude AI)
+// Import (Claude AI) + Gmail sync
 setupImportRoute(app);
+setupGmailRoutes(app);
 
 // SPA fallback
 app.get('*', (req, res) => {

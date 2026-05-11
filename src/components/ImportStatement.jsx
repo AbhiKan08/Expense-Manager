@@ -140,7 +140,7 @@ export default function ImportStatement({ categories, subCategories, onAddTransa
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-5xl mx-auto">
+    <div>
       <h2 className="text-xl font-semibold text-gray-800 mb-2">Import Statement</h2>
       <p className="text-sm text-gray-500 mb-5">Upload a bank or credit card statement — Claude will read and categorise every transaction automatically.</p>
 

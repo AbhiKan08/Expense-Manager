@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import TransactionList from './components/TransactionList';
 import ManageCategories from './components/ManageCategories';
 import ImportStatement from './components/ImportStatement';
+import GmailSync from './components/GmailSync';
 import Login from './components/Login';
 
 const NAV = [
@@ -35,6 +36,40 @@ const NAV = [
     </svg>
   )},
 ];
+
+function ImportView({ categories, subCategories, onAddTransaction }) {
+  const [tab, setTab] = useState('statement');
+  return (
+    <div className="max-w-5xl mx-auto">
+      {/* Tab bar */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
+        <button
+          onClick={() => setTab('statement')}
+          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+            tab === 'statement' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          📄 Statement
+        </button>
+        <button
+          onClick={() => setTab('gmail')}
+          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+            tab === 'gmail' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          📧 Gmail Auto-sync
+        </button>
+      </div>
+
+      {tab === 'statement' && (
+        <ImportStatement categories={categories} subCategories={subCategories} onAddTransaction={onAddTransaction} />
+      )}
+      {tab === 'gmail' && (
+        <GmailSync categories={categories} subCategories={subCategories} onAddTransaction={onAddTransaction} />
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser]               = useState(null);
@@ -215,7 +250,7 @@ export default function App() {
           {view === 'dashboard'    && <Dashboard transactions={transactions} />}
           {view === 'transactions' && <TransactionList transactions={transactions} onDelete={deleteTransaction} onUpdate={updateTransaction} {...sharedCategoryProps} />}
           {view === 'categories'   && <ManageCategories categories={categories} subCategories={subCategories} onAddCategory={addCategory} onRemoveCategory={removeCategory} onAddSubCategory={addSubCategory} onRemoveSubCategory={removeSubCategory} />}
-          {view === 'import'       && <ImportStatement categories={categories} subCategories={subCategories} onAddTransaction={addTransaction} />}
+          {view === 'import'       && <ImportView categories={categories} subCategories={subCategories} onAddTransaction={addTransaction} />}
         </main>
 
         {/* Mobile bottom nav */}

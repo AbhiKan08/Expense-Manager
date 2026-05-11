@@ -36,6 +36,14 @@ export async function init() {
       value   TEXT NOT NULL,
       PRIMARY KEY (user_id, key)
     );
+
+    CREATE TABLE IF NOT EXISTS gmail_tokens (
+      user_id       TEXT PRIMARY KEY,
+      access_token  TEXT,
+      refresh_token TEXT NOT NULL,
+      expiry        TEXT,
+      last_sync     TEXT
+    );
   `);
 
   // Migrate: add user_id to transactions if not present (idempotent)
@@ -124,4 +132,33 @@ export async function setSetting(userId, key, value) {
      ON CONFLICT (user_id,key) DO UPDATE SET value=EXCLUDED.value`,
     [userId, key, JSON.stringify(value)]
   );
+}
+
+// ─── Gmail tokens ──────────────────────────────────────────────────────────
+export async function getGmailTokens(userId) {
+  const { rows } = await pool.query('SELECT * FROM gmail_tokens WHERE user_id=$1', [userId]);
+  return rows[0] || null;
+}
+
+export async function saveGmailTokens(userId, tokens) {
+  await pool.query(
+    `INSERT INTO gmail_tokens (user_id, access_token, refresh_token, expiry)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (user_id) DO UPDATE SET
+       access_token=EXCLUDED.access_token,
+       refresh_token=COALESCE(EXCLUDED.refresh_token, gmail_tokens.refresh_token),
+       expiry=EXCLUDED.expiry`,
+    [userId, tokens.access_token, tokens.refresh_token, tokens.expiry_date?.toString()]
+  );
+}
+
+export async function updateGmailLastSync(userId) {
+  await pool.query(
+    'UPDATE gmail_tokens SET last_sync=$1 WHERE user_id=$2',
+    [new Date().toISOString(), userId]
+  );
+}
+
+export async function deleteGmailTokens(userId) {
+  await pool.query('DELETE FROM gmail_tokens WHERE user_id=$1', [userId]);
 }
